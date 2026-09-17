@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/sebamunozg/coros-api-go/internal/config"
+	"github.com/sebamunozg/coros-api-go/internal/core"
 	"github.com/sebamunozg/coros-api-go/internal/crypto"
 )
 
@@ -62,6 +63,14 @@ func Login() {
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		log.Fatalf("Failed to read response body: %v", err)
 	}
+
+	accessToken, found := core.FindAccessToken(data)
+	if !found {
+		log.Println("accessToken no existe o no es un string")
+		return
+	}
+
+	fmt.Printf("accessToken: %s\n", accessToken)
 
 	for key, value := range data {
 		fmt.Printf("%s: %v\n", key, value)
