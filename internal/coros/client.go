@@ -24,7 +24,7 @@ type LoginBody struct {
 	Pwd         string `json:"pwd"`
 }
 
-func Login() {
+func Login() (string, error) {
 
 	cfg, err := config.GetCredentials()
 	if err != nil {
@@ -55,10 +55,6 @@ func Login() {
 	}
 	defer resp.Body.Close()
 
-	log.Printf("Status received from server is: %s", resp.Status)
-	log.Printf("StatusCode received from server is: %d", resp.StatusCode)
-	log.Printf("Content Type received from Server is: %s", resp.Header["Content-Type"][0])
-
 	data := make(map[string]interface{})
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		log.Fatalf("Failed to read response body: %v", err)
@@ -66,13 +62,8 @@ func Login() {
 
 	accessToken, found := core.FindAccessToken(data)
 	if !found {
-		log.Println("accessToken no existe o no es un string")
-		return
+		return "", fmt.Errorf("accessToken not found or is not a string")
 	}
 
-	fmt.Printf("accessToken: %s\n", accessToken)
-
-	for key, value := range data {
-		fmt.Printf("%s: %v\n", key, value)
-	}
+	return accessToken, nil
 }
