@@ -1,7 +1,9 @@
 package activities
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -9,13 +11,8 @@ import (
 	"time"
 
 	"github.com/sebamunozg/coros-api-go/internal/config"
+	"github.com/sebamunozg/coros-api-go/internal/coros"
 )
-
-type CorosResponseBase struct {
-	ApiCode string `json:"apiCode"`
-	Message string `json:"message"`
-	Result  string `json:"result"`
-}
 
 type QueryActivitiesInput struct {
 	PageSize   int        `json:"pageSize"`
@@ -40,7 +37,7 @@ type QueryActivitiesData struct {
 }
 
 type QueryActivitiesResponse struct {
-	CorosResponseBase
+	coros.CorosResponseBase
 	Data QueryActivitiesData `json:"data"`
 }
 
@@ -49,48 +46,43 @@ type QueryActivitiesOutput struct {
 	Activities []Activity `json:"activities"`
 }
 
-// func handle(pageNumber int, pageSize int, from *time.Time, to *time.Time, modeList string) (QueryActivitiesOutput, error) {
-
-// 	input := QueryActivitiesInput{
-// 		PageSize:   20,
-// 		PageNumber: 1,
-// 		From:       from,
-// 		To:         to,
-// 		ModeList:   modeList,
-// 	}
-
-// 	result, err := GetActivities(input, accessToken)
-
-// 	if result.Count == 0 {
-// 		fmt.Println("No activities found for the given parameters.")
-// 		return QueryActivitiesOutput{}, nil
-// 	}
-
-// 	if err != nil {
-// 		fmt.Println("Error occurred while fetching activities:", err)
-// 		return QueryActivitiesOutput{}, err
-// 	}
-
-// 	return QueryActivitiesOutput{
-// 		Count:      result.Count,
-// 		Activities: result.Activities,
-// 	}, err
-// }
-
-func GetActivities(input QueryActivitiesInput, accessToken string) (QueryActivitiesOutput, error) {
-
-	cfg, err := config.GetCredentials()
+func CreateRequest(ctx context.Context, client *http.Client, u *url.URL, accessToken string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+
+	req.Header.Add("accessToken", accessToken)
+
+	return client.Do(req)
+}
+
+func validateQueryActivitiesResponse(resp QueryActivitiesResponse) error {
+
+	if resp.Data.TotalPage < 1 {
+		return fmt.Errorf("invalid totalPage in Coros response: %d", resp.Data.TotalPage)
+	}
+
+	if resp.Data.PageNumber < 1 {
+		return fmt.Errorf("invalid pageNumber in Coros response: %d", resp.Data.PageNumber)
+	}
+
+	if resp.Data.Count < 0 {
+		return fmt.Errorf("invalid count in Coros response: %d", resp.Data.Count)
+	}
+
+	return nil
+}
+
+func GetActivities(ctx context.Context, cfg config.Credentials, input QueryActivitiesInput, accessToken string) (QueryActivitiesOutput, error) {
 
 	activities := []Activity{}
 	var currentPage = input.PageNumber
 	var lastPage = input.PageNumber
 
-	for currentPage <= lastPage {
+	client := &http.Client{}
 
-		// https://teamapi.coros.com/activity/query
+	for currentPage <= lastPage {
 
 		coros_url := cfg.Url
 		coros_url += "/activity/query"
@@ -102,8 +94,6 @@ func GetActivities(input QueryActivitiesInput, accessToken string) (QueryActivit
 		query.Set("pageNumber", strconv.Itoa(currentPage))
 		query.Set("modeList", input.ModeList)
 
-		u.RawQuery = query.Encode()
-
 		if input.From != nil {
 			query.Set("from", input.From.Format("20060102"))
 		}
@@ -112,34 +102,39 @@ func GetActivities(input QueryActivitiesInput, accessToken string) (QueryActivit
 			query.Set("to", input.To.Format("20060102"))
 		}
 
-		client := &http.Client{}
+		u.RawQuery = query.Encode()
 
-		req, err := http.NewRequest("GET", u.String(), nil)
+		resp, err := CreateRequest(ctx, client, u, accessToken)
 		if err != nil {
-			log.Fatalf("Failed to create resource at: %s and the error is: %v\n", coros_url, err)
+			return QueryActivitiesOutput{}, err
 		}
 
-		req.Header.Add("accessToken", accessToken)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Fatalf("Failed to create resource at: %s and the error is: %v\n", coros_url, err)
+		if resp.StatusCode != http.StatusOK {
+			return QueryActivitiesOutput{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 		}
-
-		defer resp.Body.Close()
-
-		log.Printf("Query activity response: %s", resp)
-
-		// Crear validación para verificar:
-		// Que existen apiCode, message y result.
-		// Que result sea "0000".
-		// Que los datos tengan la estructura esperada.
 
 		var data QueryActivitiesResponse
 
-		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		decoderErr := json.NewDecoder(resp.Body).Decode(&data)
+		closeErr := resp.Body.Close()
+
+		if decoderErr != nil {
+			return QueryActivitiesOutput{}, decoderErr
+		}
+
+		if closeErr != nil {
+			return QueryActivitiesOutput{}, closeErr
+		}
+
+		if err := coros.AssertCorosResponseBase(data.CorosResponseBase); err != nil {
 			return QueryActivitiesOutput{}, err
 		}
+
+		if err := validateQueryActivitiesResponse(data); err != nil {
+			return QueryActivitiesOutput{}, err
+		}
+
+		log.Printf("Query activity data: %+v", data)
 
 		activities = append(activities, data.Data.DataList...)
 		lastPage = data.Data.TotalPage

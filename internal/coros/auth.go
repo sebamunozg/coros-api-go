@@ -1,7 +1,8 @@
-package auth
+package coros
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -24,12 +25,7 @@ type LoginBody struct {
 	Pwd         string `json:"pwd"`
 }
 
-func Login() (string, error) {
-
-	cfg, err := config.GetCredentials()
-	if err != nil {
-		log.Fatal(err)
-	}
+func Login(ctx context.Context, cfg config.Credentials) (string, error) {
 
 	payload := LoginBody{
 		Account:     cfg.Email,
@@ -39,25 +35,30 @@ func Login() (string, error) {
 
 	b, err := json.Marshal(payload)
 	if err != nil {
-		log.Fatalf("Failed to Serialize to JSON from native Go struct type: %v", err)
+		log.Printf("Failed to Serialize to JSON from native Go struct type: %v", err)
 	}
 
 	body := bytes.NewBuffer(b)
 
-	fmt.Println(body.String())
-
 	coros_url := cfg.Url
 	coros_url += "/account/login"
 
-	resp, err := http.Post(coros_url, "application/json; charset=utf-8", body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, coros_url, body)
 	if err != nil {
-		log.Fatalf("Failed to create resource at: %s and the error is: %v\n", coros_url, err)
+		log.Printf("Failed to create resource at: %s and the error is: %v\n", coros_url, err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	data := make(map[string]interface{})
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		log.Fatalf("Failed to read response body: %v", err)
+		log.Printf("Failed to read response body: %v", err)
 	}
 
 	accessToken, found := core.FindAccessToken(data)
