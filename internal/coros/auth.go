@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/sebamunozg/coros-api-go/internal/config"
 	"github.com/sebamunozg/coros-api-go/internal/core"
 	"github.com/sebamunozg/coros-api-go/internal/crypto"
 )
@@ -25,12 +24,12 @@ type LoginBody struct {
 	Pwd         string `json:"pwd"`
 }
 
-func Login(ctx context.Context, cfg config.Credentials) (string, error) {
+func (c *Client) Login(ctx context.Context) (string, error) {
 
 	payload := LoginBody{
-		Account:     cfg.Email,
+		Account:     c.email,
 		AccountType: 2,
-		Pwd:         crypto.CreateMD5Hash(cfg.Password),
+		Pwd:         crypto.CreateMD5Hash(c.password),
 	}
 
 	b, err := json.Marshal(payload)
@@ -40,7 +39,7 @@ func Login(ctx context.Context, cfg config.Credentials) (string, error) {
 
 	body := bytes.NewBuffer(b)
 
-	coros_url := cfg.Url
+	coros_url := c.baseURL
 	coros_url += "/account/login"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, coros_url, body)

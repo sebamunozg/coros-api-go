@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -23,10 +24,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	client := coros.NewClient(
+		cfg.Url,
+		cfg.Email,
+		cfg.Password,
+		http.DefaultClient,
+	)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	accessToken, err := coros.Login(ctx, cfg)
+	accessToken, err := client.Login(ctx)
 	if err != nil {
 		log.Fatalf("Error logging in: %v", err)
 	}
