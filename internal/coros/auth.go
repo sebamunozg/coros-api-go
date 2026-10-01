@@ -24,7 +24,7 @@ type LoginBody struct {
 	Pwd         string `json:"pwd"`
 }
 
-func (c *Client) Login(ctx context.Context) (string, error) {
+func (c *Client) Login(ctx context.Context) error {
 
 	payload := LoginBody{
 		Account:     c.email,
@@ -51,7 +51,7 @@ func (c *Client) Login(ctx context.Context) (string, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -62,8 +62,10 @@ func (c *Client) Login(ctx context.Context) (string, error) {
 
 	accessToken, found := core.FindAccessToken(data)
 	if !found {
-		return "", fmt.Errorf("accessToken not found or is not a string")
+		return fmt.Errorf("accessToken not found or is not a string")
 	}
 
-	return accessToken, nil
+	c.accessToken = accessToken
+
+	return nil
 }

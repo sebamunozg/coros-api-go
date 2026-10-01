@@ -1,4 +1,4 @@
-package activities
+package coros
 
 import (
 	"context"
@@ -9,9 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/sebamunozg/coros-api-go/internal/config"
-	"github.com/sebamunozg/coros-api-go/internal/coros"
 )
 
 type QueryActivitiesInput struct {
@@ -37,7 +34,7 @@ type QueryActivitiesData struct {
 }
 
 type QueryActivitiesResponse struct {
-	coros.CorosResponseBase
+	CorosResponseBase
 	Data QueryActivitiesData `json:"data"`
 }
 
@@ -74,17 +71,15 @@ func validateQueryActivitiesResponse(resp QueryActivitiesResponse) error {
 	return nil
 }
 
-func GetActivities(ctx context.Context, cfg config.Credentials, input QueryActivitiesInput, accessToken string) (QueryActivitiesOutput, error) {
+func (c *Client) GetActivities(ctx context.Context, input QueryActivitiesInput) (QueryActivitiesOutput, error) {
 
 	activities := []Activity{}
 	var currentPage = input.PageNumber
 	var lastPage = input.PageNumber
 
-	client := &http.Client{}
-
 	for currentPage <= lastPage {
 
-		coros_url := cfg.Url
+		coros_url := c.baseURL
 		coros_url += "/activity/query"
 
 		u, err := url.Parse(coros_url)
@@ -104,7 +99,7 @@ func GetActivities(ctx context.Context, cfg config.Credentials, input QueryActiv
 
 		u.RawQuery = query.Encode()
 
-		resp, err := CreateRequest(ctx, client, u, accessToken)
+		resp, err := CreateRequest(ctx, c.httpClient, u, c.accessToken)
 		if err != nil {
 			return QueryActivitiesOutput{}, err
 		}
@@ -126,7 +121,7 @@ func GetActivities(ctx context.Context, cfg config.Credentials, input QueryActiv
 			return QueryActivitiesOutput{}, closeErr
 		}
 
-		if err := coros.AssertCorosResponseBase(data.CorosResponseBase); err != nil {
+		if err := AssertCorosResponseBase(data.CorosResponseBase); err != nil {
 			return QueryActivitiesOutput{}, err
 		}
 

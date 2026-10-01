@@ -9,7 +9,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sebamunozg/coros-api-go/internal/config"
 	coros "github.com/sebamunozg/coros-api-go/internal/coros"
-	activities "github.com/sebamunozg/coros-api-go/internal/coros/activity"
 )
 
 func main() {
@@ -28,19 +27,19 @@ func main() {
 		cfg.Url,
 		cfg.Email,
 		cfg.Password,
+		"",
 		http.DefaultClient,
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	accessToken, err := client.Login(ctx)
-	if err != nil {
+	if err := client.Login(ctx); err != nil {
 		log.Fatalf("Error logging in: %v", err)
 	}
 
 	// datos de testing
-	input := activities.QueryActivitiesInput{
+	input := coros.QueryActivitiesInput{
 		PageNumber: 1,
 		PageSize:   20,
 		From:       nil,
@@ -48,7 +47,7 @@ func main() {
 		ModeList:   "",
 	}
 
-	result, err := activities.GetActivities(ctx, cfg, input, accessToken)
+	result, err := client.GetActivities(ctx, input)
 	if err != nil {
 		log.Fatalf("Error getting activities: %v", err)
 	}
