@@ -83,6 +83,9 @@ func (c *Client) GetActivities(ctx context.Context, input QueryActivitiesInput) 
 		coros_url += "/activity/query"
 
 		u, err := url.Parse(coros_url)
+		if err != nil {
+			return QueryActivitiesOutput{}, fmt.Errorf("failed to parse URL: %v", err)
+		}
 
 		query := u.Query()
 		query.Set("size", strconv.Itoa(input.PageSize))
