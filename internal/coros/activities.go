@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -43,7 +42,7 @@ type QueryActivitiesOutput struct {
 	Activities []Activity `json:"activities"`
 }
 
-func CreateRequest(ctx context.Context, client *http.Client, u *url.URL, accessToken string) (*http.Response, error) {
+func createGetRequest(ctx context.Context, client *http.Client, u *url.URL, accessToken string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return nil, err
@@ -93,22 +92,22 @@ func (c *Client) GetActivities(ctx context.Context, input QueryActivitiesInput) 
 		query.Set("modeList", input.ModeList)
 
 		if input.From != nil {
-			query.Set("from", input.From.Format("20060102"))
+			query.Set("startDay", input.From.Format("20060102"))
 		}
 
 		if input.To != nil {
-			query.Set("to", input.To.Format("20060102"))
+			query.Set("endDay", input.To.Format("20060102"))
 		}
 
 		u.RawQuery = query.Encode()
 
-		resp, err := CreateRequest(ctx, c.httpClient, u, c.accessToken)
+		resp, err := createGetRequest(ctx, c.httpClient, u, c.accessToken)
 		if err != nil {
 			return QueryActivitiesOutput{}, err
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return QueryActivitiesOutput{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			return QueryActivitiesOutput{}, fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
 		}
 
 		var data QueryActivitiesResponse
@@ -131,8 +130,6 @@ func (c *Client) GetActivities(ctx context.Context, input QueryActivitiesInput) 
 		if err := validateQueryActivitiesResponse(data); err != nil {
 			return QueryActivitiesOutput{}, err
 		}
-
-		log.Printf("Query activity data: %+v", data)
 
 		activities = append(activities, data.Data.DataList...)
 		lastPage = data.Data.TotalPage
