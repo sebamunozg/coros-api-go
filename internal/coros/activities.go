@@ -19,10 +19,10 @@ type QueryActivitiesInput struct {
 }
 
 type Activity struct {
-	Date      int     `json:"date"`
-	LabelId   string  `json:"labelId"`
-	Name      *string `json:"name"`
-	SportType int     `json:"sportType"`
+	Date      int    `json:"date"`
+	LabelId   string `json:"labelId"`
+	Name      string `json:"name"`
+	SportType int    `json:"sportType"`
 }
 
 type QueryActivitiesData struct {

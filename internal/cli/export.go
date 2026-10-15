@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"log"
 	"time"
 
 	"github.com/sebamunozg/coros-api-go/internal/app"
+	"github.com/sebamunozg/coros-api-go/internal/coros"
 	"github.com/spf13/cobra"
 )
 
@@ -14,13 +16,32 @@ var exportCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 }
 
-type FileTypeFlag []string
 type Flags struct {
 	OutputDir  string
-	FileTypes  FileTypeFlag
+	FileType   coros.ExportType
 	SportTypes []string
 	From       string
 	To         string
+}
+
+type exportTypeValue coros.ExportType
+
+func (f *exportTypeValue) String() string {
+	return coros.ExportType(*f).String()
+}
+
+func (f *exportTypeValue) Set(value string) error {
+	exportType, err := coros.ParseExportType(value)
+	if err != nil {
+		return err
+	}
+
+	*f = exportTypeValue(exportType)
+	return nil
+}
+
+func (f *exportTypeValue) Type() string {
+	return "export-type"
 }
 
 func init() {
@@ -29,20 +50,15 @@ func init() {
 	exportCmd.Flags().StringVar(&flags.From, "from", "", "Start date in YYYY-MM-DD format")
 	exportCmd.Flags().StringVar(&flags.To, "to", "", "End date in YYYY-MM-DD format")
 	exportCmd.Flags().StringSliceVar(&flags.SportTypes, "sport-types", []string{}, "Filter by sport types (comma-separated)")
+	exportCmd.Flags().Var((*exportTypeValue)(&flags.FileType), "export-type", "Export format: fit, tcx or gpx")
+	exportCmd.Flags().StringVarP(&flags.OutputDir, "output-dir", "o", "", "Output directory for downloaded files")
+	if err := exportCmd.MarkFlagRequired("output-dir"); err != nil {
+		log.Fatal(err)
+	}
 
 	exportCmd.RunE = func(cmd *cobra.Command, args []string) error {
 		var fromDate *time.Time
 		var toDate *time.Time
-
-		if flags.From == "" {
-			from := time.Now().AddDate(0, -1, 0)
-			fromDate = &from
-		}
-
-		if flags.To == "" {
-			to := time.Now()
-			toDate = &to
-		}
 
 		if flags.From != "" {
 			parsed, err := time.Parse("2006-01-02", flags.From)
@@ -62,9 +78,14 @@ func init() {
 			toDate = &parsed
 		}
 
-		return app.ExportActivities(app.ExportActivitiesOptions{
-			From: fromDate,
-			To:   toDate,
+		_, err := app.ExportActivities(app.ExportActivitiesOptions{
+			From:       fromDate,
+			To:         toDate,
+			SportTypes: flags.SportTypes,
+			FileType:   flags.FileType,
+			OutputDir:  flags.OutputDir,
 		})
+
+		return err
 	}
 }
