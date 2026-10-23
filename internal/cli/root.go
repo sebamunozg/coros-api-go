@@ -14,4 +14,5 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(exportCmd)
+	rootCmd.AddCommand(listCmd)
 }

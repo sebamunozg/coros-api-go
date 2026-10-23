@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -17,7 +19,7 @@ var exportCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 }
 
-type Flags struct {
+type exportFlags struct {
 	OutputDir  string
 	FileType   coros.ExportType
 	SportTypes []string
@@ -46,7 +48,7 @@ func (f *exportTypeValue) Type() string {
 }
 
 func init() {
-	var flags Flags
+	var flags exportFlags
 
 	exportCmd.Flags().StringVar(&flags.From, "from", "", "Start date in YYYY-MM-DD format")
 	exportCmd.Flags().StringVar(&flags.To, "to", "", "End date in YYYY-MM-DD format")
@@ -93,7 +95,15 @@ func init() {
 			sportTypeCodes = append(sportTypeCodes, sportType)
 		}
 
-		_, failedDownloads, err := app.ExportActivities(app.ExportActivitiesOptions{
+		application, err := app.NewApplication()
+		if err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
+		defer cancel()
+
+		_, failedDownloads, err := application.ExportActivities(ctx, app.ExportActivitiesOptions{
 			From:       fromDate,
 			To:         toDate,
 			FileType:   flags.FileType,
@@ -102,7 +112,9 @@ func init() {
 		})
 
 		if failedDownloads > 0 {
-			log.Printf("Failed to download %d activity files", failedDownloads)
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				"Failed to download %d activity files", failedDownloads)
 		}
 
 		return err

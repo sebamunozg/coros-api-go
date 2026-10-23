@@ -4,13 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
-	"github.com/sebamunozg/coros-api-go/internal/config"
 	"github.com/sebamunozg/coros-api-go/internal/coros"
 )
 
@@ -28,32 +25,10 @@ type ActivityFile struct {
 	FileName  string
 }
 
-func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, int, error) {
-	err := godotenv.Load(".env")
-
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	cfg, err := config.GetCredentials()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client := coros.NewClient(
-		cfg.Url,
-		cfg.Email,
-		cfg.Password,
-		"",
-		http.DefaultClient,
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := client.Login(ctx); err != nil {
-		return nil, 0, fmt.Errorf("Error logging in: %w", err)
-	}
+func (a *Application) ExportActivities(
+	ctx context.Context,
+	options ExportActivitiesOptions,
+) ([]ActivityFile, int, error) {
 
 	input := coros.QueryActivitiesInput{
 		PageNumber: 1,
@@ -64,7 +39,7 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, int, err
 		ModeList:   "",
 	}
 
-	result, err := client.GetActivities(ctx, input)
+	result, err := a.CorosClient.GetActivities(ctx, input)
 	if err != nil {
 		return nil, 0, fmt.Errorf("Error getting activities: %w", err)
 	}
@@ -96,7 +71,7 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, int, err
 	failedDownloads := 0
 	for _, activity := range activities {
 
-		activityData, err := client.DownloadActivity(ctx, coros.DownloadActivitiesDataInput{
+		activityData, err := a.CorosClient.DownloadActivity(ctx, coros.DownloadActivitiesDataInput{
 			LabelId:   activity.LabelId,
 			SportType: activity.SportType,
 			FileType:  options.FileType,
@@ -108,7 +83,7 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, int, err
 			continue
 		}
 
-		_, err = client.DownloadActivityFile(
+		_, err = a.CorosClient.DownloadActivityFile(
 			ctx,
 			activityData.FileUrl,
 			options.OutputDir,
