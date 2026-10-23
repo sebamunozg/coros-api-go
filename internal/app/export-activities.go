@@ -18,7 +18,7 @@ type ExportActivitiesOptions struct {
 	OutputDir  string
 	From       *time.Time
 	To         *time.Time
-	SportTypes []string
+	SportTypes []int
 	FileType   coros.ExportType
 }
 
@@ -28,7 +28,7 @@ type ActivityFile struct {
 	FileName  string
 }
 
-func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, error) {
+func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, int, error) {
 	err := godotenv.Load(".env")
 
 	if err != nil {
@@ -52,7 +52,7 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, error) {
 	defer cancel()
 
 	if err := client.Login(ctx); err != nil {
-		log.Fatalf("Error logging in: %v", err)
+		return nil, 0, fmt.Errorf("Error logging in: %w", err)
 	}
 
 	input := coros.QueryActivitiesInput{
@@ -60,12 +60,13 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, error) {
 		PageSize:   20,
 		From:       options.From,
 		To:         options.To,
+		SportTypes: options.SportTypes,
 		ModeList:   "",
 	}
 
 	result, err := client.GetActivities(ctx, input)
 	if err != nil {
-		log.Fatalf("Error getting activities: %v", err)
+		return nil, 0, fmt.Errorf("Error getting activities: %w", err)
 	}
 
 	activities := make([]ActivityFile, 0, len(result.Activities))
@@ -73,7 +74,7 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, error) {
 	for _, r := range result.Activities {
 		activityDate, err := time.Parse("20060102", strconv.Itoa(r.Date))
 		if err != nil {
-			return nil, err
+			return nil, 0, fmt.Errorf("Error parsing activity date: %w", err)
 		}
 
 		activityName := strings.TrimSpace(r.Name)
@@ -101,14 +102,25 @@ func ExportActivities(options ExportActivitiesOptions) ([]ActivityFile, error) {
 			FileType:  options.FileType,
 		})
 
-		_, err = client.DownloadActivityFile(ctx, activityData.FileUrl, options.OutputDir, activity.FileName)
-
 		if err != nil {
 			log.Printf("Error downloading activity %s: %v", activity.LabelId, err)
 			failedDownloads++
 			continue
 		}
+
+		_, err = client.DownloadActivityFile(
+			ctx,
+			activityData.FileUrl,
+			options.OutputDir,
+			activity.FileName,
+		)
+
+		if err != nil {
+			log.Printf("Error downloading activity file %s: %v", activity.LabelId, err)
+			failedDownloads++
+			continue
+		}
 	}
 
-	return activities, nil
+	return activities, failedDownloads, nil
 }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/sebamunozg/coros-api-go/internal/app"
@@ -78,13 +79,31 @@ func init() {
 			toDate = &parsed
 		}
 
-		_, err := app.ExportActivities(app.ExportActivitiesOptions{
+		var sportTypeCodes []int
+		for _, sportType := range flags.SportTypes {
+			code, err := coros.GetSportTypeCode(sportType)
+			if err != nil {
+				return err
+			}
+
+			sportType, err := strconv.Atoi(code)
+			if err != nil {
+				return err
+			}
+			sportTypeCodes = append(sportTypeCodes, sportType)
+		}
+
+		_, failedDownloads, err := app.ExportActivities(app.ExportActivitiesOptions{
 			From:       fromDate,
 			To:         toDate,
-			SportTypes: flags.SportTypes,
 			FileType:   flags.FileType,
+			SportTypes: sportTypeCodes,
 			OutputDir:  flags.OutputDir,
 		})
+
+		if failedDownloads > 0 {
+			log.Printf("Failed to download %d activity files", failedDownloads)
+		}
 
 		return err
 	}

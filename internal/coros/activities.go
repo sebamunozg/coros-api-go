@@ -15,6 +15,7 @@ type QueryActivitiesInput struct {
 	PageNumber int        `json:"pageNumber"`
 	From       *time.Time `json:"from"`
 	To         *time.Time `json:"to"`
+	SportTypes []int      `json:"sportType"`
 	ModeList   string     `json:"modeList"`
 }
 
