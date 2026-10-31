@@ -56,13 +56,13 @@ func (a *Application) ExportActivities(
 		activityName = strings.NewReplacer("/", "-", "\\", "-").Replace(activityName)
 
 		activities = append(activities, ActivityFile{
-			LabelId:   r.LabelId,
+			LabelId:   r.LabelID,
 			SportType: r.SportType,
 			FileName: fmt.Sprintf(
 				"%s %s %s.%s",
 				activityDate.Format("2006-01-02"),
 				activityName,
-				r.LabelId,
+				r.LabelID,
 				options.FileType.String(),
 			),
 		})

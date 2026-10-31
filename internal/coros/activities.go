@@ -19,28 +19,9 @@ type QueryActivitiesInput struct {
 	ModeList   string     `json:"modeList"`
 }
 
-type Activity struct {
-	Date      int    `json:"date"`
-	LabelId   string `json:"labelId"`
-	Name      string `json:"name"`
-	SportType int    `json:"sportType"`
-}
-
-type QueryActivitiesData struct {
-	Count      int        `json:"count"`
-	DataList   []Activity `json:"datalist"`
-	PageNumber int        `json:"pageNumber"`
-	TotalPage  int        `json:"totalPage"`
-}
-
-type QueryActivitiesResponse struct {
-	CorosResponseBase
-	Data QueryActivitiesData `json:"data"`
-}
-
 type QueryActivitiesOutput struct {
 	Count      int        `json:"count"`
-	Activities []Activity `json:"activities"`
+	Activities []DataList `json:"activities"`
 }
 
 func createGetRequest(ctx context.Context, client *http.Client, u *url.URL, accessToken string) (*http.Response, error) {
@@ -73,7 +54,7 @@ func validateQueryActivitiesResponse(resp QueryActivitiesResponse) error {
 
 func (c *Client) GetActivities(ctx context.Context, input QueryActivitiesInput) (QueryActivitiesOutput, error) {
 
-	activities := []Activity{}
+	activities := []DataList{}
 	var currentPage = input.PageNumber
 	var lastPage = input.PageNumber
 

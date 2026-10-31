@@ -16,7 +16,7 @@ type ListActivitiesOptions struct {
 func (a *Application) ListActivities(
 	ctx context.Context,
 	options ListActivitiesOptions,
-) ([]coros.Activity, error) {
+) ([]coros.DataList, error) {
 
 	result, err := a.CorosClient.GetActivities(ctx, coros.QueryActivitiesInput{
 		PageNumber: 1,
@@ -28,7 +28,7 @@ func (a *Application) ListActivities(
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("getting activities: %w", err)
+		return nil, fmt.Errorf("Error getting activities: %w", err)
 	}
 
 	return result.Activities, nil

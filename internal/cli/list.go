@@ -70,7 +70,7 @@ func init() {
 				"%s - %s - %s - sport type: %d\n",
 				h.FormatActivityDate(activity.Date),
 				activity.Name,
-				activity.LabelId,
+				activity.LabelID,
 				activity.SportType,
 			)
 		}
