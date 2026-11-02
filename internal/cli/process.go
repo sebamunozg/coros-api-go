@@ -2,9 +2,12 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/sebamunozg/coros-api-go/internal/app"
+	"github.com/sebamunozg/coros-api-go/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +31,21 @@ func init() {
 
 	processFitCmd.RunE = func(cmd *cobra.Command, args []string) error {
 
+		// Cargar variables de configuración
+		if err := godotenv.Load(".env"); err != nil {
+			return fmt.Errorf("loading .env file: %w", err)
+		}
+
+		cfg, err := config.GetConfig()
+		if err != nil {
+			return fmt.Errorf("getting config: %w", err)
+		}
+
+		application, err := app.NewApplication(cmd.Context(), cfg)
+		if err != nil {
+			return err
+		}
+
 		var fromDate *time.Time
 		var toDate *time.Time
 
@@ -45,11 +63,6 @@ func init() {
 				return err
 			}
 			toDate = &parsed
-		}
-
-		application, err := app.NewApplication()
-		if err != nil {
-			return err
 		}
 
 		ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)

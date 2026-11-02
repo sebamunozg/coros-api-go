@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/sebamunozg/coros-api-go/internal/app"
+	"github.com/sebamunozg/coros-api-go/internal/config"
 	"github.com/sebamunozg/coros-api-go/internal/coros"
 	"github.com/spf13/cobra"
 )
@@ -60,6 +62,22 @@ func init() {
 	}
 
 	exportCmd.RunE = func(cmd *cobra.Command, args []string) error {
+
+		// Cargar variables de configuración
+		if err := godotenv.Load(".env"); err != nil {
+			return fmt.Errorf("loading .env file: %w", err)
+		}
+
+		cfg, err := config.GetConfig()
+		if err != nil {
+			return fmt.Errorf("getting config: %w", err)
+		}
+
+		application, err := app.NewApplication(cmd.Context(), cfg)
+		if err != nil {
+			return err
+		}
+
 		var fromDate *time.Time
 		var toDate *time.Time
 
@@ -95,12 +113,12 @@ func init() {
 			sportTypeCodes = append(sportTypeCodes, sportType)
 		}
 
-		application, err := app.NewApplication()
-		if err != nil {
-			return err
+		outputDir := flags.OutputDir
+		if outputDir == "" {
+			outputDir = cfg.OutputDir
 		}
 
-		ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
 
 		_, failedDownloads, err := application.ExportActivities(ctx, app.ExportActivitiesOptions{
@@ -108,7 +126,7 @@ func init() {
 			To:         toDate,
 			FileType:   flags.FileType,
 			SportTypes: sportTypeCodes,
-			OutputDir:  flags.OutputDir,
+			OutputDir:  outputDir,
 		})
 
 		if failedDownloads > 0 {
