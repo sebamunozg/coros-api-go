@@ -1,6 +1,9 @@
 package coros
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 type SportType struct {
 	Key   string
@@ -57,4 +60,26 @@ func GetSportTypeCode(key string) (string, error) {
 	}
 
 	return code, nil
+}
+
+// ParseSportTypes converts sport type names (e.g. "run", "trailRun") into
+// the numeric codes used by the COROS API.
+func ParseSportTypes(names []string) ([]int, error) {
+	codes := make([]int, 0, len(names))
+
+	for _, name := range names {
+		code, err := GetSportTypeCode(name)
+		if err != nil {
+			return nil, err
+		}
+
+		value, err := strconv.Atoi(code)
+		if err != nil {
+			return nil, err
+		}
+
+		codes = append(codes, value)
+	}
+
+	return codes, nil
 }

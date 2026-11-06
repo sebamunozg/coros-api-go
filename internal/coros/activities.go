@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -71,7 +72,16 @@ func (c *Client) GetActivities(ctx context.Context, input QueryActivitiesInput) 
 		query := u.Query()
 		query.Set("size", strconv.Itoa(input.PageSize))
 		query.Set("pageNumber", strconv.Itoa(currentPage))
-		query.Set("modeList", input.ModeList)
+
+		modeList := input.ModeList
+		if len(input.SportTypes) > 0 {
+			codes := make([]string, 0, len(input.SportTypes))
+			for _, sportType := range input.SportTypes {
+				codes = append(codes, strconv.Itoa(sportType))
+			}
+			modeList = strings.Join(codes, ",")
+		}
+		query.Set("modeList", modeList)
 
 		if input.From != nil {
 			query.Set("startDay", input.From.Format("20060102"))

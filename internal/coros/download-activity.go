@@ -131,3 +131,22 @@ func (c *Client) DownloadActivityFile(ctx context.Context, fileUrl string, direc
 	}
 	return nil, nil
 }
+
+func (c *Client) OpenActivityFile(ctx context.Context, fileUrl string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
+	}
+
+	return resp.Body, nil
+}
