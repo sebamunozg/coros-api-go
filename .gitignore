@@ -1,1 +1,6 @@
 .env
+
+# Personal activity data
+summaries.ndjson
+*.ndjson
+activities/
