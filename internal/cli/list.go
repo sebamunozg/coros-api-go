@@ -3,10 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/sebamunozg/coros-api-go/internal/app"
 	"github.com/sebamunozg/coros-api-go/internal/config"
 	h "github.com/sebamunozg/coros-api-go/internal/helpers"
@@ -33,22 +31,15 @@ func init() {
 
 	listCmd.RunE = func(cmd *cobra.Command, args []string) error {
 
-		// Cargar variables de configuración
-		if err := godotenv.Load(".env"); err != nil {
-			return fmt.Errorf("loading .env file: %w", err)
-		}
-
 		cfg, err := config.GetConfig()
 		if err != nil {
 			return fmt.Errorf("getting config: %w", err)
 		}
 
-		log.Println("before NewApplication")
 		application, err := app.NewApplication(cmd.Context(), cfg)
 		if err != nil {
 			return err
 		}
-		log.Println("after NewApplication")
 
 		var fromDate *time.Time
 		var toDate *time.Time

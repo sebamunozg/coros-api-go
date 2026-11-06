@@ -2,9 +2,18 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/joho/godotenv"
+	"github.com/zalando/go-keyring"
+)
+
+const (
+	defaultOutputDir      = "./activities"
+	defaultRequestTimeout = 30 * time.Second
 )
 
 type Config struct {
@@ -20,51 +29,83 @@ type fileConfig struct {
 	RequestTimeoutSecs int    `json:"request_timeout_seconds"`
 }
 
+// GetConfig resolves the configuration. Credentials saved by `coros auth`
+// take priority; COROS_API_URL, COROS_EMAIL and COROS_PASSWORD (from the
+// environment or an optional .env file) are the fallback.
 func GetConfig() (Config, error) {
 
-	apiUrl := os.Getenv("COROS_API_URL")
-	if apiUrl == "" {
-		return Config{}, fmt.Errorf("COROS_API_URL is not set")
-	}
+	// .env is optional.
+	_ = godotenv.Load(".env")
 
-	email := os.Getenv("COROS_EMAIL")
-	if email == "" {
-		return Config{}, fmt.Errorf("COROS_EMAIL is not set")
-	}
-
-	password := os.Getenv("COROS_PASSWORD")
-	if password == "" {
-		return Config{}, fmt.Errorf("COROS_PASSWORD is not set")
-	}
-
-	file, err := os.Open(".config/coros/config.json")
+	stored, err := LoadStoredCredentials()
 	if err != nil {
-		return Config{}, fmt.Errorf("opening config.json: %w", err)
+		return Config{}, err
+	}
+
+	apiUrl := firstNonEmpty(stored.URL, os.Getenv("COROS_API_URL"))
+	if apiUrl == "" {
+		return Config{}, errors.New("no API URL configured: run `coros auth` or set COROS_API_URL")
+	}
+
+	email := firstNonEmpty(stored.Email, os.Getenv("COROS_EMAIL"))
+	if email == "" {
+		return Config{}, errors.New("no email configured: run `coros auth` or set COROS_EMAIL")
+	}
+
+	password, err := keyring.Get(KeyringService, email)
+	if err != nil || password == "" {
+		password = os.Getenv("COROS_PASSWORD")
+	}
+	if password == "" {
+		return Config{}, errors.New("no password configured: run `coros auth` or set COROS_PASSWORD")
+	}
+
+	outputDir, timeout, err := loadFileConfig(".config/coros/config.json")
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		Url:            apiUrl,
+		Email:          email,
+		Password:       password,
+		OutputDir:      outputDir,
+		RequestTimeout: timeout,
+	}, nil
+}
+
+// loadFileConfig reads the optional config.json. A missing file yields the defaults.
+func loadFileConfig(path string) (string, time.Duration, error) {
+	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return defaultOutputDir, defaultRequestTimeout, nil
+	}
+	if err != nil {
+		return "", 0, fmt.Errorf("opening config.json: %w", err)
 	}
 	defer file.Close()
 
 	var fileCfg fileConfig
 	if err := json.NewDecoder(file).Decode(&fileCfg); err != nil {
-		return Config{}, fmt.Errorf("decoding config.json: %w", err)
+		return "", 0, fmt.Errorf("decoding config.json: %w", err)
 	}
 
 	if fileCfg.OutputDir == "" {
-		return Config{}, fmt.Errorf("output_dir is empty in config.json")
+		return "", 0, errors.New("output_dir is empty in config.json")
 	}
 
 	if fileCfg.RequestTimeoutSecs <= 0 {
-		return Config{}, fmt.Errorf(
-			"request_timeout_seconds must be greater than zero",
-		)
+		return "", 0, errors.New("request_timeout_seconds must be greater than zero")
 	}
 
-	cfg := Config{
-		Url:            os.Getenv("COROS_API_URL"),
-		Email:          os.Getenv("COROS_EMAIL"),
-		Password:       os.Getenv("COROS_PASSWORD"),
-		OutputDir:      fileCfg.OutputDir,
-		RequestTimeout: time.Duration(fileCfg.RequestTimeoutSecs) * time.Second,
-	}
+	return fileCfg.OutputDir, time.Duration(fileCfg.RequestTimeoutSecs) * time.Second, nil
+}
 
-	return cfg, nil
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

@@ -3,11 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
-	"strconv"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/sebamunozg/coros-api-go/internal/app"
 	"github.com/sebamunozg/coros-api-go/internal/config"
 	"github.com/sebamunozg/coros-api-go/internal/coros"
@@ -50,23 +47,15 @@ func (f *exportTypeValue) Type() string {
 }
 
 func init() {
-	var flags exportFlags
+	flags := exportFlags{FileType: coros.ExportTypeFIT}
 
 	exportCmd.Flags().StringVar(&flags.From, "from", "", "Start date in YYYY-MM-DD format")
 	exportCmd.Flags().StringVar(&flags.To, "to", "", "End date in YYYY-MM-DD format")
 	exportCmd.Flags().StringSliceVar(&flags.SportTypes, "sport-types", []string{}, "Filter by sport types (comma-separated)")
 	exportCmd.Flags().Var((*exportTypeValue)(&flags.FileType), "export-type", "Export format: fit, tcx or gpx")
-	exportCmd.Flags().StringVarP(&flags.OutputDir, "output-dir", "o", "", "Output directory for downloaded files")
-	if err := exportCmd.MarkFlagRequired("output-dir"); err != nil {
-		log.Fatal(err)
-	}
+	exportCmd.Flags().StringVarP(&flags.OutputDir, "output-dir", "o", "", "Output directory for downloaded files (defaults to output_dir in config.json)")
 
 	exportCmd.RunE = func(cmd *cobra.Command, args []string) error {
-
-		// Cargar variables de configuración
-		if err := godotenv.Load(".env"); err != nil {
-			return fmt.Errorf("loading .env file: %w", err)
-		}
 
 		cfg, err := config.GetConfig()
 		if err != nil {
@@ -99,18 +88,9 @@ func init() {
 			toDate = &parsed
 		}
 
-		var sportTypeCodes []int
-		for _, sportType := range flags.SportTypes {
-			code, err := coros.GetSportTypeCode(sportType)
-			if err != nil {
-				return err
-			}
-
-			sportType, err := strconv.Atoi(code)
-			if err != nil {
-				return err
-			}
-			sportTypeCodes = append(sportTypeCodes, sportType)
+		sportTypeCodes, err := coros.ParseSportTypes(flags.SportTypes)
+		if err != nil {
+			return err
 		}
 
 		outputDir := flags.OutputDir
